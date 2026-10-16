@@ -421,8 +421,10 @@ void timerOneFunc()
 
   if (temp != DEVICE_DISCONNECTED_C)
   {
-    avg.setValue(temp + storage.Get_calibrate());
-    lastTemp = temp = avg.getValue();
+    // Rohmesswerte mitteln. Die Kalibrierung erst danach anwenden, damit
+    // eine Aenderung des Offsets nicht an der Toleranz des Filters scheitert.
+    avg.setValue(temp);
+    lastTemp = temp = avg.getValue() + storage.Get_calibrate();
     dallasErrorCnt = 0;
   }
   else
