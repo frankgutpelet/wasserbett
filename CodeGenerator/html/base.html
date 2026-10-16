@@ -110,6 +110,7 @@ pre { white-space: pre-wrap; margin: 10px 0 0; padding: 12px; background: var(--
 			<span class="step"><button onclick="nudge('inTempMinForce',-0.5)">&minus;</button><input type="text" inputmode="decimal" id="inTempMinForce" onchange="apply('inTempMinForce')"><button onclick="nudge('inTempMinForce',0.5)">+</button></span><span class="u">&deg;C</span></div>
 		<div class="rowf"><span class="l">&Uuml;berschreiten</span>
 			<span class="step"><button onclick="nudge('inTempMaxForce',-0.5)">&minus;</button><input type="text" inputmode="decimal" id="inTempMaxForce" onchange="apply('inTempMaxForce')"><button onclick="nudge('inTempMaxForce',0.5)">+</button></span><span class="u">&deg;C</span></div>
+		<div class="hint">Hier lassen sich alle Werte unabh&auml;ngig einstellen. Per MQTT verschiebt sich die Untergrenze ohne Freigabe mit der mit Freigabe mit.</div>
 		<div class="sub">Regler</div>
 		<div class="rowf"><span class="l">Hysterese</span>
 			<span class="step"><button onclick="nudge('inTreshold',-0.1)">&minus;</button><input type="text" inputmode="decimal" id="inTreshold" onchange="apply('inTreshold')"><button onclick="nudge('inTreshold',0.1)">+</button></span><span class="u">K</span></div>
@@ -308,14 +309,15 @@ pre { white-space: pre-wrap; margin: 10px 0 0; padding: 12px; background: var(--
 			"  " + t + "/relay          ON / OFF / WAIT n sec\n" +
 			"  " + t + "/status         online / offline\n\n" +
 			"MQTT lesen und setzen (<name>/set)\n" +
-			"  " + t + "/tempMin        unterschreiten, mit Freigabe\n" +
+			"  " + t + "/tempMin        unterschreiten, mit Freigabe (Soll,\n" +
+			"                        verschiebt per MQTT tempMinForce mit)\n" +
 			"  " + t + "/tempMax        überschreiten, mit Freigabe\n" +
 			"  " + t + "/tempMinForce   unterschreiten, ohne Freigabe\n" +
 			"  " + t + "/tempMaxForce   überschreiten, ohne Freigabe\n" +
 			"  " + t + "/treshold       Hysterese in K\n" +
 			"  " + t + "/calibrate      Kalibrierung in K\n" +
 			"  " + t + "/allow          ON / OFF\n" +
-			"  " + t + "/mode           OFF / AUTO / ON"
+			"  " + t + "/mode           off / auto / heat (ON = heat)"
 	}
 
 	function fillMqtt(c)

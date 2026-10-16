@@ -88,6 +88,11 @@ void MqttBridge::Connect()
 		ok = this->client.connect(this->clientId.c_str(), NULL, NULL, lwt.c_str(), 0, true, "offline");
 	}
 
+	if (!ok)
+	{
+		// rc: -2 Broker nicht erreichbar, 4 falsche Zugangsdaten, 5 nicht autorisiert
+		Serial.println(String("MQTT connect failed, rc=") + this->client.state());
+	}
 	if (ok)
 	{
 		this->client.publish(lwt.c_str(), "online", true);
@@ -154,13 +159,23 @@ void MqttBridge::Loop()
 
 	this->client.loop();
 
+	// pro Durchlauf nur einen Wert senden, damit die Verbindung zwischendurch
+	// arbeiten kann; bei Fehlern bleibt der Wert markiert und wird wiederholt
 	String base = String(this->cfg->topic);
 	for (int i = 0; i < this->count; i++)
 	{
 		if (this->dirty[i])
 		{
-			this->dirty[i] = false;
-			this->client.publish((base + "/" + this->names[i]).c_str(), this->values[i].c_str(), true);
+			String topic = base + "/" + this->names[i];
+			if (this->client.publish(topic.c_str(), this->values[i].c_str(), true))
+			{
+				this->dirty[i] = false;
+			}
+			else
+			{
+				Serial.println(String("MQTT publish failed: ") + topic);
+			}
+			break;
 		}
 	}
 }

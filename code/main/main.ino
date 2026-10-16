@@ -91,8 +91,9 @@ bool parseOnOff(String s, bool* out)
 }
 
 // Einstellung setzen: gemeinsamer Weg fuer Weboberflaeche und MQTT (<name>/set)
+// follow = true (nur MQTT): tempMinForce folgt tempMin im gleichen Abstand
 // true = angenommen
-bool applySetting(const String& name, const String& value)
+bool applySetting(const String& name, const String& value, bool follow)
 {
   double v;
   bool b;
@@ -100,8 +101,19 @@ bool applySetting(const String& name, const String& value)
   if (name == "tempMin")
   {
     if (!parseNumber(value, &v, -50, 120)) return false;
+    double oldMin = storage.Get_tempMin();
+    double oldForce = storage.Get_tempMinForce();
     storage.Set_tempMin(v);
     tempRegulator.setTempMin(v);
+    // tempMinForce folgt mit gleichem Abstand (Offset bleibt erhalten)
+    if (follow && !isnan(oldMin) && !isnan(oldForce))
+    {
+      double f = round((oldForce + (v - oldMin)) * 100.0) / 100.0;
+      if (f < -50) f = -50;
+      if (f > 120) f = 120;
+      storage.Set_tempMinForce(f);
+      tempRegulator.setTempMinForce(f);
+    }
   }
   else if (name == "tempMax")
   {
@@ -150,6 +162,7 @@ bool applySetting(const String& name, const String& value)
     String m = value;
     m.trim();
     m.toUpperCase();
+    if (m == "HEAT") m = "ON"; // thermostat_mode (Homey): off / auto / heat
     if (m == "OFF") switchMode = OFF;
     else if (m == "AUTO") switchMode = AUTO;
     else if (m == "ON") switchMode = ON;
@@ -165,7 +178,7 @@ bool applySetting(const String& name, const String& value)
 
 void onMqttCommand(const String& name, const String& value)
 {
-  applySetting(name, value);
+  applySetting(name, value, true);
 }
 
 // Weboberflaeche: POST /submit {"outSetTempMin":"28", "mode":"AUTO", ...}
@@ -176,25 +189,25 @@ void handleSubmit()
   String v;
 
   v = indexPage.Get_outSetTempMin();
-  if (v.length()) { ok &= applySetting("tempMin", v); indexPage.Set_outSetTempMin(""); }
+  if (v.length()) { ok &= applySetting("tempMin", v, false); indexPage.Set_outSetTempMin(""); }
   v = indexPage.Get_outSetTempMax();
-  if (v.length()) { ok &= applySetting("tempMax", v); indexPage.Set_outSetTempMax(""); }
+  if (v.length()) { ok &= applySetting("tempMax", v, false); indexPage.Set_outSetTempMax(""); }
   v = indexPage.Get_outSetTempMinForce();
-  if (v.length()) { ok &= applySetting("tempMinForce", v); indexPage.Set_outSetTempMinForce(""); }
+  if (v.length()) { ok &= applySetting("tempMinForce", v, false); indexPage.Set_outSetTempMinForce(""); }
   v = indexPage.Get_outSetTempMaxForce();
-  if (v.length()) { ok &= applySetting("tempMaxForce", v); indexPage.Set_outSetTempMaxForce(""); }
+  if (v.length()) { ok &= applySetting("tempMaxForce", v, false); indexPage.Set_outSetTempMaxForce(""); }
   v = indexPage.Get_outTreshold();
-  if (v.length()) { ok &= applySetting("treshold", v); indexPage.Set_outTreshold(""); }
+  if (v.length()) { ok &= applySetting("treshold", v, false); indexPage.Set_outTreshold(""); }
   v = indexPage.Get_outCalibrate();
-  if (v.length()) { ok &= applySetting("calibrate", v); indexPage.Set_outCalibrate(""); }
+  if (v.length()) { ok &= applySetting("calibrate", v, false); indexPage.Set_outCalibrate(""); }
 
   // mode und allow enthalten immer den aktuellen Zustand, bei Aenderung den neuen Wunsch
-  if (!applySetting("mode", indexPage.Get_mode()))
+  if (!applySetting("mode", indexPage.Get_mode(), false))
   {
     ok = false;
     indexPage.Set_mode(OFF == switchMode ? "OFF" : (AUTO == switchMode ? "AUTO" : "ON"));
   }
-  if (!applySetting("allow", indexPage.Get_allow()))
+  if (!applySetting("allow", indexPage.Get_allow(), false))
   {
     ok = false;
     indexPage.Set_allow(allow ? "On" : "Off");
@@ -230,11 +243,11 @@ void Release()
   Serial.println(cmd);
   if (String("Power on") == cmd)
   {
-    applySetting("allow", "On");
+    applySetting("allow", "On", false);
   }
   else if (String("Power off") == cmd)
   {
-    applySetting("allow", "Off");
+    applySetting("allow", "Off", false);
     relStatus = false;
   }
   else
@@ -466,7 +479,7 @@ void timerOneFunc()
     mqtt.Publish(mqttTemp, String(temp, 1));
   }
   mqtt.Publish(mqttRelay, indexPage.Get_status());
-  mqtt.Publish(mqttMode, indexPage.Get_mode());
+  mqtt.Publish(mqttMode, OFF == switchMode ? "off" : (AUTO == switchMode ? "auto" : "heat"));
   mqtt.Publish(mqttAllow, allow ? "ON" : "OFF");
   mqtt.Publish(mqttTempMin, String(tempMin, 2));
   mqtt.Publish(mqttTempMax, String(tempMax, 2));
